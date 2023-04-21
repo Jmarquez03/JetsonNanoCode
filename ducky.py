@@ -4,6 +4,7 @@ import numpy as np
 from pyzbar.pyzbar import decode
 from yolo import YOLO
 import time
+from threading import Thread
 ######################################################################
 width = 640  # WIDTH OF THE IMAGE
 height = 480  # HEIGHT OF THE IMAGE
@@ -34,6 +35,7 @@ frameHeight = height
 global imgContour
 global dir;
 global detected_values
+global threadender
 detected_values = []
 
 
@@ -85,6 +87,8 @@ def yolo(img):
         cv2.rectangle(imgContour, (int(frameWidth / 2 - deadZone), int(frameHeight / 2) + deadZone),
                       (int(frameWidth / 2 + deadZone), frameHeight), (0, 0, 255), cv2.FILLED)
         dir = 4
+    elif (b[0] < int(frameWidth / 2) - deadZone) and (b[0] > int(frameWidth / 2) + deadZone) and (b[1] < int(frameHeight / 2) - deadZone) and (b[1] > int(frameHeight / 2) + deadZone):
+        dir = 4
     else:
         dir = 5
     # publish image
@@ -119,12 +123,10 @@ def scan(img):
             # We use rect since we don't want the text to be positioned at a weird angle
             #pts2 = barcode.rect
             #cv2.putText(img, myData, (pts2[0], pts2[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 255), 2)
-            write((me.get_mission_pad_distance_y() * -1), (me.get_mission_pad_distance_x() * -1))
             gabababool = False
             break
             '''if camera == 0:
             camera = 1
-
         else:
             camera = 0'''
         # Display the image and refresh every millisecond
@@ -153,7 +155,14 @@ while True:
     elif dir == 3:
        me.for_back_velocity = 60
     elif dir == 4:
-       me.scan(img)
+       p1 = Thread(target=scan(img))
+       p1.start()
+       me.move_up(60)
+       while gabababool = True:
+            me.send_rc_control(60)
+            iteration += 1
+            if iteration > 3:
+                break
        me.send_command_with_return("go 0 0 50 m" + str(mpad))
        me.land()
     else:
