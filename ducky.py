@@ -10,8 +10,8 @@ width = 640  # WIDTH OF THE IMAGE
 height = 480  # HEIGHT OF THE IMAGE
 deadZone =100
 ######################################################################
-
-startCounter = 1
+mpad = 1
+global startCounter
 
 # CONNECT TO TELLO
 me = Tello()
@@ -36,6 +36,7 @@ global imgContour
 global dir;
 global detected_values
 global threadender
+global gababool
 detected_values = []
 
 
@@ -44,8 +45,10 @@ def startCheck():
     with open('QRCodes.txt', 'r') as file:
         for line in file:
             detected_values.append(line)
-        if len(detected_values) > 0:
-            startCounter = 0
+            if len(detected_values) > 0:
+                startCounter = 0
+
+
 def check(search_string):
     with open('QRCodes.txt', 'r') as file:
         for line in file:
@@ -55,10 +58,10 @@ def check(search_string):
     return False
 
 
-def write(y, x):
-        with open('Coordinates.txt', 'w') as file:
-            coordinate_tuple = (y, x)
-            file.write("{}\n".format(coordinate_tuple))
+def write(x, y):
+    with open('Coordinates.txt', 'w') as file:
+        coordinate_tuple = (x, y)
+        file.write("{}\n".format(coordinate_tuple))
 
 
 def yolo(img):
@@ -104,7 +107,7 @@ def display(img):
 
 
 def scan(img):
-    me.send_command_with_return("downvision " + str(camera))
+    me.send_command_with_return("downvision 1")
     # We can use a for loop to scan multiple barcodes at once or bring in a constant feed
     gabababool = True
     while gabababool:
@@ -124,11 +127,11 @@ def scan(img):
             #pts2 = barcode.rect
             #cv2.putText(img, myData, (pts2[0], pts2[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 255), 2)
             gabababool = False
+            while me.get_mission_pad_distance_x() == -100:
+                me.rotate_clockwise(45)
+            write(((me.get_mission_pad_distance_x() * -1), me.get_mission_pad_distance_y() * -1))
+            me.send_command_with_return("downvision 0")
             break
-            '''if camera == 0:
-            camera = 1
-        else:
-            camera = 0'''
         # Display the image and refresh every millisecond
         #cv2.imshow('Result', img)
         cv2.waitKey(1)
@@ -141,6 +144,7 @@ imgContour = yolo(img)
 display(imgContour)
 
 ################ FLIGHT
+startCounter = 1
 while startCounter == 1:
     startCheck()
 if startCounter == 0:
@@ -149,22 +153,27 @@ if startCounter == 0:
     startCounter = 1
 while True:
     if dir == 1:
-       me.yaw_velocity = -60
+        me.yaw_velocity = -60
     elif dir == 2:
-       me.yaw_velocity = 60
+        me.yaw_velocity = 60
     elif dir == 3:
-       me.for_back_velocity = 60
+        me.for_back_velocity = 60
     elif dir == 4:
-       p1 = Thread(target=scan(img))
-       p1.start()
-       me.move_up(60)
-       while gabababool = True:
-            me.send_rc_control(60)
+        me.enable_mission_pads()
+        p1 = Thread(target=scan(img))
+        p1.start()
+        me.move_up(60)
+        while gababool == True:
+            me.move_forward(30)
+            iteration = 0
             iteration += 1
             if iteration > 3:
                 break
-       me.send_command_with_return("go 0 0 50 m" + str(mpad))
-       me.land()
+        if gababool == False:
+            me.send_command_with_return("mdirection 2")
+            me.send_command_with_return("go 0 0 50 m" + str(mpad))
+            me.land()
+        me.disable_mission_pad()
     else:
        me.left_right_velocity = 0; me.for_back_velocity = 0;me.up_down_velocity = 0; me.yaw_velocity = 0
        me.rotate_clockwise(15)
@@ -173,7 +182,14 @@ while True:
     if me.send_rc_control:
         me.send_rc_control(me.left_right_velocity, me.for_back_velocity, me.up_down_velocity, me.yaw_velocity)
     print(dir)
-
+    for value in detected_values:
+        if value == "Done":
+            me.enable_mission_pads()
+            me.send_command_with_return("mdirection 2")
+            me.send_command_with_return("go 0 0 50 m" + str(mpad))
+            me.land()
+            me.emergency()
+        
     if cv2.waitKey(1) & 0xFF == ord('q'):
         me.land()
         break
